@@ -1,293 +1,5 @@
-# Inspección de Data Products en Hogwarts
-### Informe del Ministerio de Magia sobre evaluación trimestral
-
-- **Asignatura:** Programación y entornos de trabajo para la IA
-- **Estudiante:** Tania Évora Vargas Martínez
-- **Módulo:** Python - Unidad Didáctica 1, 2 y 3
-- **Universidad:** Alfonso X el Sabio
-- **Fecha:** Noviembre 2025
-## Procesamiento y preparación de Datos
-En esta primera parte se realiza todo el trabajo necesario para dejar los datos preparados para el análisis. Aquí se documentan las transformaciones, comprobaciones y limpiezas realizadas sobre los datasets trimestrales proporcionados por el Ministerio de Magia. Las tareas incluyen:
-- Verificación del esquema de columnas.
-- Revisión del tipo de datos y su consistencia.
-- Comprobación de formato en campos especiales como *ID*, *Name*, *Status*, *Version* y *NumberUsers*.
-- Creación de columnas temporales (año y trimestre).
-- Unión de los tres trimestres en un único DataFrame.
-
-Esta preparación permite que el análisis sea fiable y consistente con las reglas establecidas por el Ministerio.
-# Librerías para el procesamiento de datos
-import pandas as pd
-import numpy as np
-import re
-### 1. Carga de datos
-Se importan los tres datasets correspondientes al años 2024, cada uno con la información trimestral sobre los Data Products en Hogwarts. 
-
-Tras la carga inicial, se verifica que las columnas de los tres trimestres coincide con el esquema oficial definido en el enunciado (`ID`, `Name`, `Descriptive Name`, `Description`, `Domain`, `Owner`, `IsCompliance`, `Status`, `Version`, `NumberUsers`). 
-
-Este paso garantiza que dataset son compatibles entre sí y pueden trabajarse en un único conjunto para su posterior análisis.
-
-base = "Hogwards - 2024xT"
-
-trim1_2024 = pd.read_csv(f"{base}\Hogwards - 20241T.csv")
-trim2_2024 = pd.read_csv(f"{base}\Hogwards - 20242T.csv")
-trim3_2024 = pd.read_csv(f"{base}\Hogwards - 20243T.csv")
-# Comprobación de columnas esperadas
-expected_cols = ["ID", "Name", "Descriptive Name", "Description", "Domain", "Owner", "IsCompliance", "Status", "Version", "NumberUsers"]
-
-for df in [trim1_2024, trim2_2024, trim3_2024]:
-  if df.columns.tolist() != expected_cols:
-    print("Las columnas no coinciden con las esperadas.")
-  else:
-    print("Las columnas coinciden con las esperadas.")
-### 2. Revisión del esquema
-A continuación se comprueba la estructura de cada dataset. Esto permite:
-- Confirmar que las columnas tienen tipos de datos esperados.
-- Verificar que no existen valores nulos.
-- Comprobar la consistencia entre los tres datasets.
-
-La columna *IsCompliance* aparece correctamente como booleana y *NumberUsers* como entero, mientras que el resto de campos que son de texto se representan como `object`, lo cual es apropiado.
-trim1_2024.info()
-trim2_2024.info()
-trim3_2024.info()
-### 3. Validación de formatos y valores esperados
-El enunciado define reglas concretas sobre el formato y valores permitidos en ciertas columnas (ID, Name, Status, Version y NumberUsers). Para asegurar que los datos cumplen estas reglas, se implementa una función de validación que revisa:
-- **ID:** Es único, y sigue el patrón `DPXXX` con X entre 0 y 9.
-- **Name:** No debe contener especios.
-- **Status:** Debe ser uno de los cuatro estados oficiales.
-- **Version:** Debe seguir el formato `X.X.X`
-- **NumberUsers:** Debe estar entre 0 y 100.
-
-Este proceso no corrige valores, únicamente detecta posibles inconsistencias, evitando modificaciones que puedan alterar el significado del dataset del Ministerio.
-def format_check(df):
-  # ID
-  duplicated = df['ID'].duplicated().sum()
-  if duplicated > 0:
-    print(f"Hay {duplicated} IDs duplicados.")
-  for id in df['ID']:
-    if not re.match(r'^DP\d{3}$', id):
-      print(f"ID inválido encontrado: {id}")
-  # Name
-  for name in df['Name']:
-    if re.search(r"\s", name):
-      print(f"Nombre inválido encontrado: {name}")
-  # Status
-  for status in df['Status']:
-    if status not in ['Development', 'Planned', 'Production', 'Deprecated']:
-      print(f"Status inválido encontrado: {status}")
-  # Version
-  for version in df['Version']:
-    if not re.match(r'^\d\.\d\.\d$', str(version)):
-      print(f"Version inválido encontrado: {version}")
-  # NumberUsers
-  for users in df['NumberUsers']:
-    if not (0 <= users <= 100):
-      print(f"NumberUsers inválido encontrado: {users}")
-
-format_check(trim1_2024)
-format_check(trim2_2024)
-format_check(trim3_2024)
-### 4. Creación de columnas temporales: Year y Trimester
-Dado que los datos provienen de los tres trimestres del 2024 y la idea es unirlos, se añaden dos columnas nuevas a cada dataset:
-- **Year:** Año del dataset (en este caso 2024).
-- **Trimester:** Trimestre al que pertenece el registro (1, 2 o 3).
-
-Estas columnas permiten, tras la unión de los tres datasets:
-- Realizar análisis temporales.
-- Generar visualizaciones de evolución trimestral.
-- Ordenar y agrupar los Data Products en el tiempo.
-trim1_2024["Year"] = 2024
-trim2_2024["Year"] = 2024
-trim3_2024["Year"] = 2024
-
-trim1_2024["Trimester"] = 1
-trim2_2024["Trimester"] = 2
-trim3_2024["Trimester"] = 3
-### 5. Unión de los datasets trimestrales
-Una vez verificados los datos y añadida la información temporal, se combinan los tres datasets en un único. Este dataset contiene todos los Data Products recopilados a lo largo del año 2024, será la base para responder las preguntas de negocio planteadas por el Ministerio de Magia.
-trimestres_2024 = pd.concat([trim1_2024, trim2_2024, trim3_2024], ignore_index=True)
-trimestres_2024.head()
-## Resultados y Visualización
-En esta sección se presentan los resultados del análisis realizado sobre los datos trimestrales proporcionados por el Ministerio de Magia. Toda la información mostrada esta orientada a resolver las preguntas de negocio planteadas en el enunciado y a presentar los resultadosde manera clara, directa y visual.
-# Librerías para la visualización
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Extensión de SQL en Jupyter
-%load_ext sql
-%sql sqlite://
-%sql drop table if exists trimestres_2024;
-%sql --persist trimestres_2024
-%config SqlMagic.style = '_DEPRECATED_DEFAULT'
-
-### 1. Estado actual de los Data Products: 
-#### 1.1 Número total de Data Products 
-A continuación se muestra el número de Data Products (DP) desglosados por departamentos y estado (Development, Planned, Production, Deprecated). Con este desglose se pueden identificar las áreas mejor y peor preparadas.
-**Departamento con más DP en producción**:
-- *Adivinacion* dispone de **17 Data Products en producción** siendo la más productiva...
-- *Pociones* es el siguiente departamento con mayor número de Data Products, con **13 en producción** en este caso ...
-**Departamento con más DP en planificación o desarrollo**
-
-
-  
-
-- **Dominios con más proyectos en planificación o desarrollo**:  
-  - *Herbología* concentra **15 en Planned** y **12 en Development**, lo que indica un fuerte crecimiento futuro, aunque aún con baja presencia en producción (**solo 2**).  
-  - *Historia de la Magia* también presenta **12 en Development**, mostrando un esfuerzo de modernización.  
-
-- **Dominios con mayor proporción de sistemas obsoletos (Deprecated)**:  
-  - *Transformaciones* (**10 Deprecated**) y *Herbología* (**9 Deprecated**) son áreas críticas, con muchos sistemas fuera de servicio oficial pero aún registrados.  
-  - *Encantamientos* y *Historia de la Magia* también presentan valores elevados en Deprecated (**8 y 7 respectivamente**).  
-
-En resumen, **Adivinación y Pociones** son las áreas mejor preparadas actualmente, mientras que **Herbología y Transformaciones** requieren atención por su alto número de sistemas obsoletos y baja presencia en producción.
-query = """
-  SELECT Domain AS Departamento, 
-         Status AS Estado,
-         COUNT(ID) AS 'Nº DP' 
-  FROM trimestres_2024 
-  GROUP BY Domain, Status;
-"""
-result_11 = %sql {query}
-result_11_df = result_11.DataFrame()
-result_11_df
-
-### 2. Análisis trimestral de los Data Products en estado "Planned" o "Production": 
-query = """
-  SELECT Trimester, Status,
-         SUM(NumberUsers) AS TotalUsers, 
-         COUNT(ID) AS NumDataProducts
-  FROM trimestres_2024
-  WHERE Status IN ('Planned', 'Production')
-  GROUP BY Trimester, Status;
-"""
-result_2 = %sql {query}
-result_2_df = result_2.DataFrame()
-result_2_df
-#### 2.1 ¿Cuántos de estos cumplen con las normas de compliance? 
-query = """
-  SELECT Trimester, 
-         Status,
-         COUNT(ID) AS NumDataProducts
-  FROM trimestres_2024
-  WHERE Status IN ('Planned', 'Production')
-  AND IsCompliance = 1
-  GROUP BY Trimester, Status;
-"""
-result_21 = %sql {query}
-result_21_df = result_21.DataFrame()
-result_21_df
-#### 2.2 ¿Cuántos usuarios están utilizando estos Data Products en cada área? 
-query = """
-  SELECT Trimester, 
-         Status,
-         Domain,
-         SUM(NumberUsers) AS TotalUsers
-  FROM trimestres_2024
-  WHERE Status IN ('Planned', 'Production')
-  GROUP BY Trimester, Status, Domain;
-"""
-result_22 = %sql {query}
-result_22_df = result_22.DataFrame()
-result_22_df
-#### 2.3 ¿Cuál es el promedio de usuarios por área? 
-query = """
-  SELECT Trimester, Status, Domain,
-         ROUND(AVG(NumberUsers), 2) AS AvgUsers
-  FROM trimestres_2024
-  WHERE Status IN ('Planned', 'Production')
-  GROUP BY Trimester, Status, Domain;
-"""
-result_23 = %sql {query}
-result_23_df = result_23.DataFrame()
-result_23_df
-#### 2.4  Y en aquellos que no cumplen con compliance, ¿cuántos usuarios tienen de todas formas? (¡Esto es importante para identificar posibles brechas de seguridad!). 
-query = """
-  SELECT Trimester, Status,
-         SUM(NumberUsers) AS TotalUsers
-  FROM trimestres_2024
-  WHERE Status IN ('Planned', 'Production')
-  AND IsCompliance = 0
-  GROUP BY Trimester, Status;
-"""
-result_24 = %sql {query}
-result_24_df = result_24.DataFrame()
-result_24_df
-### 3. Análisis trimestral de los Data Products "Deprecated": 
-query = """
-  SELECT Trimester, Status,
-         COUNT(ID) AS NumDataProducts
-  FROM trimestres_2024
-  WHERE Status = 'Deprecated'
-  GROUP BY Trimester, Status;
-"""
-result_3 = %sql {query}
-result_3_df = result_3.DataFrame()
-result_3_df
-#### 3.1 ¿Cuántos Data Products en estado "Deprecated" hay en cada dominio? 
-query = """
-  SELECT Trimester, Domain,
-         COUNT(ID) AS NumDataProducts
-  FROM trimestres_2024
-  WHERE Status = 'Deprecated'
-  GROUP BY Trimester, Domain;
-"""
-result_31 = %sql {query}
-result_31_df = result_31.DataFrame()
-result_31_df
-#### 3.2 ¿Cuántos usuarios siguen conectados a estos Data Products que, oficialmente, ya no están en servicio? 
-query = """
-  SELECT Trimester, 
-         SUM(NumberUsers) AS TotalUsers
-  FROM trimestres_2024
-  WHERE Status = 'Deprecated'
-  GROUP BY Trimester;
-"""
-result_32 = %sql {query}
-result_32_df = result_32.DataFrame()
-result_32_df
-### 4. Análisis de los funcionarios (Owners) por cada trimestre: 
-query = """
-  SELECT Trimester, Owner, Status,
-         COUNT(ID) AS TotalDataProducts
-  FROM trimestres_2024
-  GROUP BY Trimester, Owner, Status;
-"""
-
-result_4 = %sql {query}
-result_4_df = result_4.DataFrame()
-result_4_df
-#### 4.1 ¿Cuántos funcionarios están trabajando, y cuántos Data Products (por estado) tienen asignados? 
-query = """
-  SELECT Trimester, 
-         COUNT(DISTINCT Owner) AS NumOwners, 
-         Status,
-         COUNT(ID) AS NumDataProducts
-  FROM trimestres_2024
-  GROUP BY Trimester, Status;
-"""
-
-result_41 = %sql {query}
-result_41_df = result_41.DataFrame()
-result_41_df
-#### 4.2 En cada dominio, ¿quiénes son los tres Owners con más usuarios en sus Data Products en estado "Planned" o "Production"? 
-query = """
-  SELECT Trimester, Domain, Owner, TotalUsers
-  FROM (
-    SELECT Trimester, Domain, Owner,
-           SUM(NumberUsers) AS TotalUsers,
-           ROW_NUMBER() OVER (PARTITION BY Trimester, Domain ORDER BY SUM(NumberUsers) DESC) AS row
-    FROM trimestres_2024
-    WHERE Status IN ('Planned', 'Production')
-    GROUP BY Trimester, Domain, Owner
-  ) 
-  WHERE row <= 3
-  ORDER BY Trimester, Domain, TotalUsers DESC;
-"""
-
-result_42 = %sql {query}
-result_42_df = result_42.DataFrame()
-result_42_df
-#### 4.3 Por otro lado, ¿quién es el Owner menos productivo en cada dominio? 
-Esto significa que tiene el mayor porcentaje de Data Products en estado "Deprecated" sobre el total que le han asignado. Si hay empate, ¡queremos saber todos los nombres! 
+#### 4.3 Por otro lado, ¿quién es el Owner menos productivo en cada dominio? Esto significa que tiene el mayor porcentaje de Data Products en estado "Deprecated" sobre el total que le han asignado. Si hay empate, ¡queremos saber todos los nombres! 
+Explicar consulta
 query = """
   SELECT Trimester, Domain, Owner,
          Deprecated,
@@ -305,11 +17,12 @@ query = """
   WHERE row = 1
   ORDER BY Trimester, Domain;
 """
-
 result_43 = %sql {query}
 result_43_df = result_43.DataFrame()
 result_43_df
+Explicar resultados
 #### 4.4 Y finalmente, debido a la importancia de la ubicuidad, ¿hay algún funcionario que esté trabajando en varios dominios a la vez? El Ministerio quiere saber si tiene a algún mago "polifacético" en su equipo. 
+Explicar consulta
 query = """
   SELECT Trimester, Owner, NumDomains
   FROM (
@@ -323,10 +36,12 @@ query = """
 result_44 = %sql {query}
 result_44_df = result_44.DataFrame()
 result_44_df
+Explicar resultados
 ## Conclusiones
 *(Resumen de hallazgos clave y recomendaciones para el Ministerio de Magia.)*
-# Gráfica de Data Products actuales por dominio y su estado.
-pivot_11 = result_11_df.pivot(index='Domain', columns='Status', values='NumDataProducts').fillna(0)
+Explicar cada gráfica que significa (cada una corresponde a las solicitadas)
+### Gráfica de Data Products actuales por dominio y su estado.
+pivot_11 = result_11_df.pivot(index='Domain', columns='Status', values='DataProducts').fillna(0)
 ax = pivot_11.plot(kind='bar', stacked=True, figsize=(10,8))
 for container in ax.containers:
     ax.bar_label(container, label_type='center')
@@ -335,7 +50,7 @@ plt.xlabel('Dominio')
 plt.ylabel('Número de Data Products')
 plt.legend(title='Estado')
 plt.show()
-# Evolución temporal del número de usuarios de Data Products en producción.
+### Evolución temporal del número de usuarios de Data Products en producción.
 query = """
   SELECT Trimester, 
          SUM(NumberUsers) AS TotalUsers
@@ -366,8 +81,8 @@ for i, value in enumerate(y):
   )
 
 plt.show()
-# Evolución temporal de Data Products totales frente a aquellos que cumplen con compliance.
-# Total de Data Products por trimestre
+### Evolución temporal de Data Products totales frente a aquellos que cumplen con compliance.
+#### Total de Data Products por trimestre
 query = """
   SELECT Trimester,
          COUNT(ID) AS NumDataProducts
@@ -377,7 +92,7 @@ query = """
 total_dp = %sql {query}
 total_dp_df = total_dp.DataFrame()
 
-# Data Products que cumplen con compliance por trimestre
+#### Data Products que cumplen con compliance por trimestre
 query_compliance = """
   SELECT Trimester, 
           COUNT(ID) AS NumDataProducts
@@ -417,7 +132,7 @@ for i, value in enumerate(merged_df['NumDataProducts_Compliance']):
   )
 plt.show()
 
-# Evolución temporal del número de Owners por dominio.
+### Evolución temporal del número de Owners por dominio.
 query = """
   SELECT Trimester, Domain,
          COUNT(DISTINCT Owner) AS NumOwners
